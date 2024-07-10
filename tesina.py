@@ -167,7 +167,7 @@ class KnapsackProblem:
                 queue.append((level + 1, current_weight, current_value, new_solution, None, None))
             
             if DEBUG:
-                print(f'-----------backtracking from level {level} to level {level-1}--------------')
+                print('new node')
 
     def calculate_upper_bound(self, level, current_weight, current_value, bound_method):
         assert bound_method == 0 or bound_method == 1, "Bound method not defined"
