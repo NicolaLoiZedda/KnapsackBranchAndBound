@@ -1,6 +1,9 @@
 import argparse
 import time
+import sys
 from collections import deque
+
+DEBUG = False
 
 class KnapsackProblem:
     def __init__(self, profits=None, weights=None, capacity=None, file_path=None):
@@ -14,6 +17,7 @@ class KnapsackProblem:
             self.capacity = capacity
             self.x = [0] * self.n
             self.z = 0
+            self.nodes = 0
 
     def read_from_file(self, file_path):
         with open(file_path, 'r') as file:
@@ -31,6 +35,7 @@ class KnapsackProblem:
         assert len(self.profits) == len(self.weights) == self.n, "The number of profits and weights must match the specified number of items"
         self.x = [0] * self.n
         self.z = 0
+        self.nodes = 0
 
     def solve_problem(self, search_algorithm, bound_method):
         self.preprocessing()
@@ -38,101 +43,139 @@ class KnapsackProblem:
         return self.x, self.z
     
     def preprocessing(self):
-        print('start preprocessing')
+        if DEBUG:
+            print('start preprocessing')
         items = [(self.profits[i], self.weights[i], i) for i in range(self.n)]
         items.sort(key=lambda x: x[0] / x[1], reverse=True)        
         
         self.profits = [items[i][0] for i in range(self.n)]
         self.weights = [items[i][1] for i in range(self.n)]
-        print('end preprocessing')
+        if DEBUG:
+            print('end preprocessing')
     
     def branch_and_bound(self, search_algorithm, bound_method):
         assert search_algorithm == 0 or search_algorithm == 1, "Search algorithm not defined"
-        print('B&B')
+        if DEBUG:
+            print('B&B')
         if search_algorithm == 0: # depth-first search
             self.branch_and_bound_dfs(0, 0, 0, [0] * self.n, bound_method, None, None)
         else: # breadth-first search
             self.branch_and_bound_bfs(bound_method)
 
     def branch_and_bound_dfs(self, level, current_weight, current_value, solution, bound_method, upper_bound, break_item):
-        print(f'level {level}')
+        self.nodes += 1
+        if DEBUG:
+            print(f'level {level}')
         
         if level < self.n-1:        
             if upper_bound is None:
-                print(f'level {level} - calculating upper bound')
+                if DEBUG:
+                    print(f'level {level} - calculating upper bound')
                 upper_bound, break_item = self.calculate_upper_bound(level, current_weight, current_value, bound_method)
-            else:
+            elif DEBUG:
                 print(f'level {level} - bound already calculated ({upper_bound})')
                 
             if upper_bound <= self.z:
-                print(f'pruning (upper bound lower than best solution - {upper_bound} <= {self.z}=)')
+                if DEBUG:
+                    print(f'pruning (upper bound lower than best solution - {upper_bound} <= {self.z}=)')
                 return
         
         if (level == self.n) or (level == break_item and self.capacity - current_weight < min(self.weights[level:])):
             if current_value > self.z:
-                print(f'{current_value} > {self.z}')
-                print(f'NEW SOLUTION: {current_value}')
+                if DEBUG:
+                    print(f'{current_value} > {self.z}')
+                    print(f'NEW SOLUTION: {current_value}')
                 self.z = current_value
                 self.x = solution[:]
-            else:
+            elif DEBUG:
                 print(f'{current_value} <= {self.z}')
             return
 
         # x[i] = 1
-        print(f'cw={current_weight}, w{level+1}={self.weights[level]}, capacity={self.capacity}')
+        if DEBUG:
+            print(f'cw={current_weight}, w{level+1}={self.weights[level]}, capacity={self.capacity}')
         if current_weight + self.weights[level] <= self.capacity:
             solution[level] = 1
-            print(f'x[{level+1}]=1 explore node')
+            if DEBUG:
+                print(f'x[{level+1}]=1 explore node')
             self.branch_and_bound_dfs(level + 1, current_weight + self.weights[level],
                                   current_value + self.profits[level], solution, bound_method, upper_bound, break_item)
-        else:
+        elif DEBUG:
             print(f'x[{level+1}]=1 don\'t explore node')
 
         # x[i] = 0        
         if level != self.n-1:
             solution[level] = 0
-            print(f'x[{level+1}]=0 explore node')
+            if DEBUG:
+                print(f'x[{level+1}]=0 explore node')
             self.branch_and_bound_dfs(level + 1, current_weight, current_value, solution, bound_method, None, None)
-            
-        print(f'-----------backtracking from level {level} to level {level-1}--------------')
+        
+        if DEBUG:
+            print(f'-----------backtracking from level {level} to level {level-1}--------------')
     
     def branch_and_bound_bfs(self, bound_method):
-        queue = deque([(0, 0, 0, [0] * self.n)])  # (level, current_weight, current_value, solution)
-
+        queue = deque([(0, 0, 0, [0] * self.n, None, None)])  # (level, current_weight, current_value, solution, upper_bound, break_item)
+        
         while queue:
-            level, current_weight, current_value, solution = queue.popleft()
+            level, current_weight, current_value, solution, upper_bound, break_item = queue.popleft()
+            self.nodes += 1
+            if DEBUG:
+                print(f'level {level}')
+            
+            if level < self.n - 1:
+                if upper_bound is None:
+                    if DEBUG:
+                        print(f'level {level} - calculating upper bound')
+                    upper_bound, break_item = self.calculate_upper_bound(level, current_weight, current_value, bound_method)
+                elif DEBUG:
+                    print(f'level {level} - bound already calculated ({upper_bound})')
 
-            if level == self.n:
+                if upper_bound <= self.z:
+                    if DEBUG:
+                        print(f'pruning (upper bound lower than best solution - {upper_bound} <= {self.z})')
+                    continue
+            
+            if (level == self.n) or (level == break_item and self.capacity - current_weight < min(self.weights[level:])):
                 if current_value > self.z:
+                    if DEBUG:
+                        print(f'{current_value} > {self.z}')
+                        print(f'NEW SOLUTION: {current_value}')
                     self.z = current_value
                     self.x = solution[:]
+                elif DEBUG:
+                    print(f'{current_value} <= {self.z}')
                 continue
-
+            
             # x[i] = 1
+            if DEBUG:
+                print(f'cw={current_weight}, w{level+1}={self.weights[level]}, capacity={self.capacity}')
             if current_weight + self.weights[level] <= self.capacity:
-                print(f'x[{level+1}]=1 explore node')
                 new_solution = solution[:]
                 new_solution[level] = 1
-                queue.append((level + 1, current_weight + self.weights[level],
-                              current_value + self.profits[level], new_solution))
-            else:
+                if DEBUG:
+                    print(f'x[{level+1}]=1 explore node')
+                queue.append((level + 1, current_weight + self.weights[level], current_value + self.profits[level], new_solution, upper_bound, break_item))
+            elif DEBUG:
                 print(f'x[{level+1}]=1 don\'t explore node')
-
+            
             # x[i] = 0
-            upper_bound = self.calculate_upper_bound(level, current_weight, current_value, bound_method)
-            if upper_bound > self.z:
-                print(f'x[{level+1}]=0 explore node')
+            if level != self.n - 1:
                 new_solution = solution[:]
                 new_solution[level] = 0
-                queue.append((level + 1, current_weight, current_value, new_solution))
-            else:
-                print('pruning')
+                if DEBUG:
+                    print(f'x[{level+1}]=0 explore node')
+                queue.append((level + 1, current_weight, current_value, new_solution, None, None))
+            
+            if DEBUG:
+                print(f'-----------backtracking from level {level} to level {level-1}--------------')
 
     def calculate_upper_bound(self, level, current_weight, current_value, bound_method):
         assert bound_method == 0 or bound_method == 1, "Bound method not defined"
-        print(f'level {level} - calculating break item')
+        if DEBUG:
+            print(f'level {level} - calculating break item')
         break_item = self.calculate_break_item(level, current_weight)
-        print(f'level {level} - calculating residual capacity')
+        if DEBUG:
+            print(f'level {level} - calculating residual capacity')
         residual_capacity = self.calculate_residual_capacity(level, current_weight, break_item)
         if bound_method == 0: # Dantzig upper bound
             return self.upper_bound_dantzig(level, current_weight, current_value, break_item, residual_capacity), break_item
@@ -144,9 +187,11 @@ class KnapsackProblem:
         for i in range(level, self.n):
             w += self.weights[i]
             if w > self.capacity:
-                print(f'break item = {i+1}')
+                if DEBUG:
+                    print(f'break item = {i+1}')
                 return i
-        print('no break item')
+        if DEBUG:
+            print('no break item')
         return self.n  # all items can be included
     
     def calculate_residual_capacity(self, level, current_weight, break_item):
@@ -154,41 +199,59 @@ class KnapsackProblem:
         for i in range(level, break_item):
             w += self.weights[i]
         
-        print(f'residual capacity = {self.capacity - w}')
+        if DEBUG:
+            print(f'residual capacity = {self.capacity - w}')
         return self.capacity - w
 
     def upper_bound_dantzig(self, level, current_weight, current_value, break_item, residual_capacity):
-        print(f'current value={current_value}')
+        if DEBUG:
+            print(f'current value={current_value}')
         result = current_value
         for i in range(level, break_item):
-            print(self.profits[i], end=" ")
+            if DEBUG:
+                print(self.profits[i], end=" ")
             result += self.profits[i]
             
-        print('upper bound dantzig')
+        if DEBUG:
+            print('upper bound dantzig')
         if break_item < self.n:
-            print(f'{residual_capacity} * {self.profits[break_item]} / {self.weights[break_item]}')
+            if DEBUG:
+                print(f'{residual_capacity} * {self.profits[break_item]} / {self.weights[break_item]}')
             result += residual_capacity * self.profits[break_item] / self.weights[break_item]
         
-        print(f'upper bound = {int(result)}')
+        if DEBUG:
+            print(f'upper bound = {int(result)}')
         
         return int(result)
 
     def upper_bound_martello_toth(self, level, current_weight, current_value, break_item, residual_capacity):
+        if DEBUG:
+            print(f'current value={current_value}')
         res1 = current_value
-        for i in range(level, break_item):
-            res1 += self.profits[i]
-        res1 += residual_capacity * (self.profits[break_item] / self.weights[break_item])
-        
-        print('upper bound mt')
-        
         res2 = current_value
-        for i in range(level, break_item+1):
-            res2 += self.profits[i]
-        res2 -= (self.weights[break_item] - residual_capacity) * (self.profits[break_item-1] / self.weights[break_item-1])
+        
+        for i in range(level, break_item):
+            if DEBUG:
+                print(self.profits[i], end=" ")
+            res1 += self.profits[i]
+        
+        if DEBUG:
+            print('upper bound mt')
+
+        if break_item < self.n:
+            res1 += residual_capacity * self.profits[break_item] / self.weights[break_item]
+            
+            for i in range(level, break_item+1):
+                if DEBUG:
+                    print(self.profits[i], end=" ")
+                res2 += self.profits[i]
+            if break_item > 0 and break_item < self.n:
+                res2 -= (self.weights[break_item] - residual_capacity) * (self.profits[break_item-1] / self.weights[break_item-1])
         
         result = max(int(res1), int(res2))
         
-        print(f'upper bound = {result}')
+        if DEBUG:
+            print(f'upper bound = {result}')
         
         return result
 
@@ -198,6 +261,8 @@ parser.add_argument('file_path', type=str, help='Path to the file containing pro
 parser.add_argument('search_algorithm', type=int, choices=[0, 1], help='Search algorithm to use: 0 for DFS, 1 for BFS.')
 parser.add_argument('bound_method', type=int, choices=[0, 1], help='Bound method to use: 0 for Dantzig, 1 for Martello-Toth.')
 args = parser.parse_args()
+
+sys.setrecursionlimit(5000)
 
 # define the knapsack problem
 kp = KnapsackProblem(file_path=args.file_path)
@@ -216,3 +281,4 @@ execution_time = end_time - start_time
 print(f'x = {x}')
 print(f'z = {z}')
 print(f'Execution time: {execution_time} seconds')
+print(f'Number of nodes: {kp.nodes}')
