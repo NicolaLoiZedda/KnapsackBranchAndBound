@@ -1,6 +1,7 @@
 import argparse
 import time
 import sys
+import heapq
 from collections import deque
 
 DEBUG = False
@@ -23,12 +24,12 @@ class KnapsackProblem:
         with open(file_path, 'r') as file:
             first_line = file.readline().split()
             self.n = int(first_line[0])
-            self.capacity = float(first_line[1])
+            self.capacity = int(first_line[1])
             self.profits = []
             self.weights = []
             
             for _ in range(self.n):
-                profit, weight = map(float, file.readline().split())
+                profit, weight = map(int, file.readline().split())
                 self.profits.append(profit)
                 self.weights.append(weight)
         
@@ -57,16 +58,18 @@ class KnapsackProblem:
         assert search_algorithm == 0 or search_algorithm == 1, "Search algorithm not defined"
         if DEBUG:
             print('B&B')
+        upper_bound, break_item = self.calculate_upper_bound(0, 0, 0, bound_method)
         if search_algorithm == 0: # depth-first search
-            self.branch_and_bound_dfs(0, 0, 0, [0] * self.n, bound_method, None, None)
-        else: # breadth-first search
-            self.branch_and_bound_bfs(bound_method)
+            self.branch_and_bound_dfs(0, 0, 0, [0] * self.n, bound_method, upper_bound, break_item)
+        else: # best bound-first search
+            self.branch_and_bound_bbfs(bound_method)
 
     def branch_and_bound_dfs(self, level, current_weight, current_value, solution, bound_method, upper_bound, break_item):
         self.nodes += 1
         if DEBUG:
             print(f'level {level}')
         
+        # if it's a "regular" node calculates the upper bound (unless it already has been)
         if level < self.n-1:        
             if upper_bound is None:
                 if DEBUG:
@@ -80,6 +83,7 @@ class KnapsackProblem:
                     print(f'pruning (upper bound lower than best solution - {upper_bound} <= {self.z}=)')
                 return
         
+        # if search can't continue after this node, calculate the solution of this branch
         if (level == self.n) or (level == break_item and self.capacity - current_weight < min(self.weights[level:])):
             if current_value > self.z:
                 if DEBUG:
@@ -103,7 +107,7 @@ class KnapsackProblem:
         elif DEBUG:
             print(f'x[{level+1}]=1 don\'t explore node')
 
-        # x[i] = 0        
+        # x[i] = 0
         if level != self.n-1:
             solution[level] = 0
             if DEBUG:
@@ -113,29 +117,28 @@ class KnapsackProblem:
         if DEBUG:
             print(f'-----------backtracking from level {level} to level {level-1}--------------')
     
-    def branch_and_bound_bfs(self, bound_method):
-        queue = deque([(0, 0, 0, [0] * self.n, None, None)])  # (level, current_weight, current_value, solution, upper_bound, break_item)
-        
-        while queue:
-            level, current_weight, current_value, solution, upper_bound, break_item = queue.popleft()
+    def branch_and_bound_bbfs(self, bound_method):
+        priority_queue = []
+
+        # Initial node (level 0, current_weight 0, current_value 0)
+        initial_node = (0, 0, 0, [0] * self.n, float('inf'))
+        heapq.heappush(priority_queue, (-initial_node[4], initial_node))
+
+        while priority_queue:
+            _, node = heapq.heappop(priority_queue)
+            level, current_weight, current_value, solution, upper_bound = node
+
             self.nodes += 1
             if DEBUG:
-                print(f'level {level}')
-            
-            if level < self.n - 1:
-                if upper_bound is None:
-                    if DEBUG:
-                        print(f'level {level} - calculating upper bound')
-                    upper_bound, break_item = self.calculate_upper_bound(level, current_weight, current_value, bound_method)
-                elif DEBUG:
-                    print(f'level {level} - bound already calculated ({upper_bound})')
+                print(f'level {level}: current_weight = {current_weight}')
 
+            if level < self.n - 1:
                 if upper_bound <= self.z:
                     if DEBUG:
-                        print(f'pruning (upper bound lower than best solution - {upper_bound} <= {self.z})')
+                        print(f'pruning (upper bound lower than best solution - {upper_bound} <= {self.z}=)')
                     continue
-            
-            if (level == self.n) or (level == break_item and self.capacity - current_weight < min(self.weights[level:])):
+
+            if (level == self.n) or (self.capacity - current_weight < min(self.weights[level:], default=0)):
                 if current_value > self.z:
                     if DEBUG:
                         print(f'{current_value} > {self.z}')
@@ -145,30 +148,24 @@ class KnapsackProblem:
                 elif DEBUG:
                     print(f'{current_value} <= {self.z}')
                 continue
-            
-            # x[i] = 1
-            if DEBUG:
-                print(f'cw={current_weight}, w{level+1}={self.weights[level]}, capacity={self.capacity}')
+
             if current_weight + self.weights[level] <= self.capacity:
                 new_solution = solution[:]
                 new_solution[level] = 1
+                left_upper_bound, _ = self.calculate_upper_bound(level + 1, current_weight + self.weights[level], current_value + self.profits[level], bound_method)
                 if DEBUG:
-                    print(f'x[{level+1}]=1 explore node')
-                queue.append((level + 1, current_weight + self.weights[level], current_value + self.profits[level], new_solution, upper_bound, break_item))
-            elif DEBUG:
-                print(f'x[{level+1}]=1 don\'t explore node')
-            
-            # x[i] = 0
-            if level != self.n - 1:
-                new_solution = solution[:]
-                new_solution[level] = 0
-                if DEBUG:
-                    print(f'x[{level+1}]=0 explore node')
-                queue.append((level + 1, current_weight, current_value, new_solution, None, None))
-            
-            if DEBUG:
-                print('new node')
+                    print(f'x[{level + 1}]=1 calculate node bound')
+                    print(f'left upper bound = {left_upper_bound}')
+                heapq.heappush(priority_queue, (-left_upper_bound, (level + 1, current_weight + self.weights[level], current_value + self.profits[level], new_solution, left_upper_bound)))
 
+            new_solution = solution[:]
+            new_solution[level] = 0
+            right_upper_bound, _ = self.calculate_upper_bound(level + 1, current_weight, current_value, bound_method)
+            if DEBUG:
+                print(f'x[{level + 1}]=0 calculate node bound')
+                print(f'right upper bound = {right_upper_bound}')
+            heapq.heappush(priority_queue, (-right_upper_bound, (level + 1, current_weight, current_value, new_solution, right_upper_bound)))
+    
     def calculate_upper_bound(self, level, current_weight, current_value, bound_method):
         assert bound_method == 0 or bound_method == 1, "Bound method not defined"
         if DEBUG:
