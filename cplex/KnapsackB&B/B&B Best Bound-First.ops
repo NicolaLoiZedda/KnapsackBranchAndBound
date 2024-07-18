@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<settings version="2">
+  <category name="cplex">
+    <setting name="mipsearch" value="1"/>
+    <setting name="bqpcuts" value="-1"/>
+    <setting name="cliques" value="-1"/>
+    <setting name="covers" value="-1"/>
+    <setting name="disjcuts" value="-1"/>
+    <setting name="flowcovers" value="-1"/>
+    <setting name="gubcovers" value="-1"/>
+    <setting name="landpcuts" value="-1"/>
+    <setting name="localimplbd" value="-1"/>
+    <setting name="mcfcuts" value="-1"/>
+    <setting name="mircuts" value="-1"/>
+    <setting name="nodecuts" value="-1"/>
+    <setting name="flowpaths" value="-1"/>
+    <setting name="rltcuts" value="-1"/>
+    <setting name="zerohalfcuts" value="-1"/>
+    <setting name="fraccuts" value="-1"/>
+    <setting name="implbd" value="-1"/>
+    <setting name="brdir" value="1"/>
+  </category>
+</settings>
