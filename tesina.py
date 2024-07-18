@@ -120,9 +120,9 @@ class KnapsackProblem:
     def branch_and_bound_bbfs(self, bound_method):
         priority_queue = []
 
-        # Initial node (level 0, current_weight 0, current_value 0)
+        # initial node (level 0, current_weight 0, current_value 0)
         initial_node = (0, 0, 0, [0] * self.n, float('inf'))
-        heapq.heappush(priority_queue, (-initial_node[4], initial_node))
+        heapq.heappush(priority_queue, (-initial_node[4], initial_node)) # -initial_node[4] = -inf
 
         while priority_queue:
             _, node = heapq.heappop(priority_queue)
