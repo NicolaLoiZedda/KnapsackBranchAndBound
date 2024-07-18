@@ -56,9 +56,12 @@ class KnapsackProblem:
     
     def branch_and_bound(self, search_algorithm, bound_method):
         assert search_algorithm == 0 or search_algorithm == 1, "Search algorithm not defined"
+        
         if DEBUG:
             print('B&B')
+        
         upper_bound, break_item = self.calculate_upper_bound(0, 0, 0, bound_method)
+        
         if search_algorithm == 0: # depth-first search
             self.branch_and_bound_dfs(0, 0, 0, [0] * self.n, bound_method, upper_bound, break_item)
         else: # best bound-first search
@@ -66,6 +69,7 @@ class KnapsackProblem:
 
     def branch_and_bound_dfs(self, level, current_weight, current_value, solution, bound_method, upper_bound, break_item):
         self.nodes += 1
+        
         if DEBUG:
             print(f'level {level}')
         
@@ -98,8 +102,10 @@ class KnapsackProblem:
         # x[i] = 1
         if DEBUG:
             print(f'cw={current_weight}, w{level+1}={self.weights[level]}, capacity={self.capacity}')
+        
         if current_weight + self.weights[level] <= self.capacity:
             solution[level] = 1
+            
             if DEBUG:
                 print(f'x[{level+1}]=1 explore node')
             self.branch_and_bound_dfs(level + 1, current_weight + self.weights[level],
@@ -110,6 +116,7 @@ class KnapsackProblem:
         # x[i] = 0
         if level != self.n-1:
             solution[level] = 0
+            
             if DEBUG:
                 print(f'x[{level+1}]=0 explore node')
             self.branch_and_bound_dfs(level + 1, current_weight, current_value, solution, bound_method, None, None)
@@ -168,12 +175,15 @@ class KnapsackProblem:
     
     def calculate_upper_bound(self, level, current_weight, current_value, bound_method):
         assert bound_method == 0 or bound_method == 1, "Bound method not defined"
+        
         if DEBUG:
             print(f'level {level} - calculating break item')
         break_item = self.calculate_break_item(level, current_weight)
+        
         if DEBUG:
             print(f'level {level} - calculating residual capacity')
         residual_capacity = self.calculate_residual_capacity(level, current_weight, break_item)
+        
         if bound_method == 0: # Dantzig upper bound
             return self.upper_bound_dantzig(level, current_weight, current_value, break_item, residual_capacity), break_item
         else: # Martello-Toth upper bound
@@ -187,8 +197,10 @@ class KnapsackProblem:
                 if DEBUG:
                     print(f'break item = {i+1}')
                 return i
+        
         if DEBUG:
             print('no break item')
+        
         return self.n  # all items can be included
     
     def calculate_residual_capacity(self, level, current_weight, break_item):
@@ -198,11 +210,13 @@ class KnapsackProblem:
         
         if DEBUG:
             print(f'residual capacity = {self.capacity - w}')
+        
         return self.capacity - w
 
     def upper_bound_dantzig(self, level, current_weight, current_value, break_item, residual_capacity):
         if DEBUG:
             print(f'current value={current_value}')
+        
         result = current_value
         for i in range(level, break_item):
             if DEBUG:
@@ -211,6 +225,7 @@ class KnapsackProblem:
             
         if DEBUG:
             print('upper bound dantzig')
+        
         if break_item < self.n:
             if DEBUG:
                 print(f'{residual_capacity} * {self.profits[break_item]} / {self.weights[break_item]}')
@@ -224,6 +239,7 @@ class KnapsackProblem:
     def upper_bound_martello_toth(self, level, current_weight, current_value, break_item, residual_capacity):
         if DEBUG:
             print(f'current value={current_value}')
+        
         res1 = current_value
         res2 = current_value
         
@@ -242,6 +258,7 @@ class KnapsackProblem:
                 if DEBUG:
                     print(self.profits[i], end=" ")
                 res2 += self.profits[i]
+                
             if break_item > 0 and break_item < self.n:
                 res2 -= (self.weights[break_item] - residual_capacity) * (self.profits[break_item-1] / self.weights[break_item-1])
         
