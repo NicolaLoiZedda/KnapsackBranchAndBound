@@ -55,8 +55,6 @@ class KnapsackProblem:
             print('end preprocessing')
     
     def branch_and_bound(self, search_algorithm, bound_method):
-        assert search_algorithm == 0 or search_algorithm == 1, "Search algorithm not defined"
-        
         if DEBUG:
             print('B&B')
         
@@ -174,8 +172,6 @@ class KnapsackProblem:
             heapq.heappush(priority_queue, (-right_upper_bound, (level + 1, current_weight, current_value, new_solution, right_upper_bound)))
     
     def calculate_upper_bound(self, level, current_weight, current_value, bound_method):
-        assert bound_method == 0 or bound_method == 1, "Bound method not defined"
-        
         if DEBUG:
             print(f'level {level} - calculating break item')
         break_item = self.calculate_break_item(level, current_weight)
